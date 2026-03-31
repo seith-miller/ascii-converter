@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { Command } from 'commander';
-import { convert, ConvertOptions } from './converter';
+import { convert, ConvertOptions, UpscaleMode } from './converter';
 import { glob } from 'glob';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -19,12 +19,24 @@ program
   .option('-i, --invert <boolean>', 'Invert brightness', 'true')
   .option('-o, --output <path>', 'Output file path (default: stdout)')
   .option('-b, --batch <pattern>', 'Glob pattern for batch conversion')
+  .option('-u, --upscale <mode>', 'Upscale mode: auto, force, off', 'auto')
+  .option('--upscale-factor <number>', 'Upscale factor for force mode', '2')
   .action(async (input: string | undefined, opts: Record<string, string>) => {
     try {
+      const upscaleMode = opts.upscale as UpscaleMode;
+      if (!['auto', 'force', 'off'].includes(upscaleMode)) {
+        console.error('Error: --upscale must be auto, force, or off');
+        process.exit(1);
+      }
+
+      const upscaleFactor = parseFloat(opts.upscaleFactor);
+
       const convertOpts: ConvertOptions = {
         width: parseInt(opts.width, 10),
         height: parseInt(opts.height, 10),
         invert: opts.invert !== 'false',
+        upscale: upscaleMode,
+        upscaleFactor,
       };
 
       if (opts.charset) {
