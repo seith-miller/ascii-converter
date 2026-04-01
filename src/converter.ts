@@ -14,7 +14,7 @@ export interface ConvertOptions {
 }
 
 export async function convert(
-  inputPath: string,
+  input: string | Buffer,
   options: ConvertOptions = {}
 ): Promise<string> {
   const {
@@ -36,10 +36,10 @@ export async function convert(
     throw new Error('Upscale factor must be at least 1');
   }
 
-  let pipeline = sharp(inputPath);
+  let pipeline = sharp(input);
 
   if (upscale === 'force') {
-    const metadata = await sharp(inputPath).metadata();
+    const metadata = await sharp(input).metadata();
     const srcWidth = metadata.width || 1;
     const srcHeight = metadata.height || 1;
     pipeline = pipeline.resize(
@@ -48,7 +48,7 @@ export async function convert(
       { kernel: 'lanczos3' }
     );
   } else if (upscale === 'auto') {
-    const metadata = await sharp(inputPath).metadata();
+    const metadata = await sharp(input).metadata();
     const srcWidth = metadata.width || 1;
     const srcHeight = metadata.height || 1;
     if (srcWidth < width || srcHeight < height) {
