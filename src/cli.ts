@@ -12,6 +12,7 @@ import {
   TempFileManager,
   ProviderName,
 } from './storage';
+import { isVideoFile, extractFrames, cleanupTempDir, checkFfmpeg } from './video';
 
 const program = new Command();
 
@@ -30,6 +31,8 @@ program
   .option('--upscale-factor <number>', 'Upscale factor for force mode', '2')
   .option('--storage-provider <provider>', 'Cloud provider: s3, gcs, local (default: auto-detect)')
   .option('--storage-config <path>', 'Path to provider credentials/config file')
+  .option('-f, --frames <number>', 'Number of frames to extract from video (default: 1 = key frame)')
+  .option('-t, --timestamp <time>', 'Specific timestamp to extract from video (e.g. "00:01:30")')
   .action(async (input: string | undefined, opts: Record<string, string>) => {
     const tempManager = new TempFileManager();
     try {
@@ -90,6 +93,52 @@ program
           process.exit(1);
         }
         converterInput = input;
+      }
+
+      // Handle video files
+      if (typeof converterInput === 'string' && isVideoFile(converterInput)) {
+        checkFfmpeg();
+        const frameCount = opts.frames ? parseInt(opts.frames, 10) : 1;
+        const { framePaths, tempDir } = extractFrames(converterInput, {
+          frames: opts.timestamp ? 1 : frameCount,
+          timestamp: opts.timestamp,
+        });
+
+        try {
+          if (framePaths.length === 1) {
+            // Single frame: same behavior as image
+            const result = await convert(framePaths[0], convertOpts);
+            if (opts.output) {
+              if (isCloudUri(opts.output)) {
+                const provider = getProviderForUri(opts.output, opts.storageConfig);
+                await provider.write(opts.output, result);
+                console.error(`Written to ${opts.output}`);
+              } else {
+                fs.writeFileSync(opts.output, result, 'utf-8');
+                console.error(`Written to ${opts.output}`);
+              }
+            } else {
+              console.log(result);
+            }
+          } else {
+            // Multiple frames: output numbered .txt files
+            const outputDir = opts.output ? path.dirname(opts.output) : process.cwd();
+            const outputName = opts.output
+              ? path.basename(opts.output).replace(/\.[^.]+$/, '')
+              : path.basename(converterInput).replace(/\.[^.]+$/, '');
+
+            for (let i = 0; i < framePaths.length; i++) {
+              const result = await convert(framePaths[i], convertOpts);
+              const frameNum = String(i + 1).padStart(3, '0');
+              const outputPath = path.join(outputDir, `${outputName}_${frameNum}.txt`);
+              fs.writeFileSync(outputPath, result, 'utf-8');
+              console.error(`Written frame ${i + 1}: ${outputPath}`);
+            }
+          }
+        } finally {
+          cleanupTempDir(tempDir);
+        }
+        return;
       }
 
       const result = await convert(converterInput, convertOpts);
