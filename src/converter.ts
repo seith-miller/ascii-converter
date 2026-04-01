@@ -2,11 +2,15 @@ import sharp from 'sharp';
 
 const DEFAULT_CHARSET = ' .:-=+*#%@';
 
+export type UpscaleMode = 'auto' | 'force' | 'off';
+
 export interface ConvertOptions {
   width?: number;
   height?: number;
   charset?: string;
   invert?: boolean;
+  upscale?: UpscaleMode;
+  upscaleFactor?: number;
 }
 
 export async function convert(
@@ -18,6 +22,8 @@ export async function convert(
     height = 40,
     charset = DEFAULT_CHARSET,
     invert = true,
+    upscale = 'auto',
+    upscaleFactor = 2,
   } = options;
 
   if (width < 1 || height < 1) {
@@ -26,8 +32,38 @@ export async function convert(
   if (charset.length === 0) {
     throw new Error('Charset must not be empty');
   }
+  if (upscaleFactor < 1) {
+    throw new Error('Upscale factor must be at least 1');
+  }
 
-  const pixels = await sharp(inputPath)
+  let pipeline = sharp(inputPath);
+
+  if (upscale === 'force') {
+    const metadata = await sharp(inputPath).metadata();
+    const srcWidth = metadata.width || 1;
+    const srcHeight = metadata.height || 1;
+    pipeline = pipeline.resize(
+      Math.round(srcWidth * upscaleFactor),
+      Math.round(srcHeight * upscaleFactor),
+      { kernel: 'lanczos3' }
+    );
+  } else if (upscale === 'auto') {
+    const metadata = await sharp(inputPath).metadata();
+    const srcWidth = metadata.width || 1;
+    const srcHeight = metadata.height || 1;
+    if (srcWidth < width || srcHeight < height) {
+      const scaleX = width / srcWidth;
+      const scaleY = height / srcHeight;
+      const scale = Math.max(scaleX, scaleY);
+      pipeline = pipeline.resize(
+        Math.round(srcWidth * scale),
+        Math.round(srcHeight * scale),
+        { kernel: 'lanczos3' }
+      );
+    }
+  }
+
+  const pixels = await pipeline
     .resize(width, height, { fit: 'fill' })
     .grayscale()
     .raw()
