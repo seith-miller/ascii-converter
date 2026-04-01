@@ -1,0 +1,48 @@
+name: 'ASCII Art Converter'
+description: 'Convert images to ASCII art'
+branding:
+  icon: 'image'
+  color: 'green'
+
+inputs:
+  path:
+    description: 'Input image file path(s), one per line'
+    required: true
+  width:
+    description: 'Output width in characters'
+    required: false
+    default: '80'
+  height:
+    description: 'Output height in characters'
+    required: false
+    default: '40'
+  charset:
+    description: 'Custom character ramp'
+    required: false
+    default: ''
+  invert:
+    description: 'Invert brightness mapping'
+    required: false
+    default: 'true'
+  upscale:
+    description: 'Upscale mode: auto, force, off'
+    required: false
+    default: 'auto'
+  output-path:
+    description: 'Directory for output .txt files (default: same as input)'
+    required: false
+    default: ''
+  upload-artifact:
+    description: 'Print a notice with output file paths for artifact upload'
+    required: false
+    default: 'false'
+
+outputs:
+  ascii:
+    description: 'The generated ASCII art (multiple files separated by ---)'
+  output-files:
+    description: 'Paths to generated output files, one per line'
+
+runs:
+  using: 'docker'
+  image: 'Dockerfile'

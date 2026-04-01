@@ -8,6 +8,7 @@
   },
   "scripts": {
     "build": "tsc",
+    "build:lambda": "tsc && echo 'Lambda entry point: dist/lambda.js (handler export)'",
     "start": "node dist/cli.js",
     "test": "jest --verbose"
   },
